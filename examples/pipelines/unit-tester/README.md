@@ -29,3 +29,6 @@ Clones kubevirt-tekton-tasks repository and executes unit tests in a VM and then
 kubectl apply -f unit-tester-pipeline.yaml
 kubectl create -f unit-tester-pipelinerun.yaml
 ```
+
+kubectl delete -f unit-tester-pipeline.yaml
+kubectl delete -f unit-tester-pipelinerun.yaml

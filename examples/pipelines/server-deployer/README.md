@@ -33,6 +33,11 @@ kubectl apply -f server-deployer-pipeline.yaml
 kubectl create -f server-deployer-pipelinerun.yaml
 ```
 
+```bash
+kubectl delete -f server-deployer-pipeline.yaml
+kubectl delete -f server-deployer-pipelinerun.yaml
+```
+
 ## Interact with the deployed app
 
 To expose and interact with the deployed application run the following snippet

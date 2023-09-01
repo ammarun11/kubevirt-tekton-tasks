@@ -1,5 +1,5 @@
-cat <<EOF | kubectl apply -f -
-apiVersion: tekton.dev/v1beta1
+cat <<EOF > server-deployer-pipeline.yaml
+apiVersion: tekton.dev/v1
 kind: Pipeline
 metadata:
   name: server-deployer
@@ -44,7 +44,7 @@ spec:
           value: "$(tasks.modify-data-object.results.name)"
         - name: customizeCommands
           value: |
-            install git,vim,pip
+            install git,vim,pip -y
             run-command pip install flask
       taskRef:
         kind: Task

@@ -1,3 +1,4 @@
+cat <<EOF > unit-tester-pipeline.yaml
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
@@ -137,3 +138,4 @@ spec:
       taskRef:
         kind: Task
         name: cleanup-vm
+EOF

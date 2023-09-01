@@ -1,5 +1,5 @@
----
-apiVersion: tekton.dev/v1beta1
+cat <<EOF > server-deployer-pipelinerun.yaml
+apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
   generateName: server-deployer-run-
@@ -8,10 +8,40 @@ spec:
     name: server-deployer
   taskRunSpecs:
     - pipelineTaskName: modify-data-object
-      taskServiceAccountName: modify-data-object-task
+      serviceAccountName: modify-data-object-task
     - pipelineTaskName: generate-ssh-keys
-      taskServiceAccountName: generate-ssh-keys-task
+      serviceAccountName: generate-ssh-keys-task
     - pipelineTaskName: create-vm-from-manifest
-      taskServiceAccountName: create-vm-from-manifest-task
+      serviceAccountName: create-vm-from-manifest-task
     - pipelineTaskName: execute-in-vm
-      taskServiceAccountName: execute-in-vm-task
+      serviceAccountName: execute-in-vm-task
+EOF
+
+
+cat <<EOF > server-deployer-pipelinerun.yaml
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  generateName: server-deployer-run-
+spec:
+  pipelineRef:
+    name: server-deployer
+  timeouts:
+    pipeline: 1h # You can set the pipeline timeout here if required.  
+  taskRunSpecs:
+    - pipelineTaskName: modify-data-object
+      serviceAccountName: modify-data-object-task
+      podTemplate: {}  # Replace with your pod template if needed
+    - pipelineTaskName: generate-ssh-keys
+      serviceAccountName: generate-ssh-keys-task
+      podTemplate: {}  # Replace with your pod template if needed
+    - pipelineTaskName: create-vm-from-manifest
+      serviceAccountName: create-vm-from-manifest-task
+      podTemplate: {}  # Replace with your pod template if needed
+    - pipelineTaskName: execute-in-vm
+      serviceAccountName: execute-in-vm-task
+      podTemplate: {}  # Replace with your pod template if needed
+  taskRunTemplate:  # If you have common configurations like serviceAccountName or podTemplate for all tasks, you can specify them here
+    serviceAccountName: default-service-account # replace with a common service account if you have one
+    podTemplate: {}  # Replace with your common pod template if needed
+EOF

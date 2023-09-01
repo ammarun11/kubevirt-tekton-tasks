@@ -1,0 +1,65 @@
+cat <<EOF | kubectl apply -f -
+apiVersion: tekton.dev/v1beta1
+kind: TaskRun
+metadata:
+  name: create-vm-from-manifest-taskrun
+spec:
+  serviceAccountName: create-vm-from-manifest-task
+  taskRef:
+    kind: Task
+    name: create-vm-from-manifest
+  params:
+  - name: manifest
+    value: |
+      apiVersion: kubevirt.io/v1
+      kind: VirtualMachine
+      metadata:
+        creationTimestamp: 2023-04-10T15:03:08Z
+        generation: 1
+        labels:
+          kubevirt.io/os: linux
+        name: default1
+      spec:
+        running: true
+        template:
+          metadata:
+            creationTimestamp: null
+            labels:
+              kubevirt.io/domain: default1
+          spec:
+            domain:
+              cpu:
+                cores: 2
+              devices:
+                disks:
+                - disk:
+                    bus: virtio
+                  name: disk0
+                - cdrom:
+                    bus: sata
+                    readonly: true
+                  name: cloudinitdisk
+              machine:
+                type: q35
+              resources:
+                requests:
+                  memory: 2Gi
+            volumes:
+            - name: disk0
+              persistentVolumeClaim:
+                claimName: default-pvc1
+            - cloudInitNoCloud:
+                userData: |
+                  #cloud-config
+                  hostname: default1
+                  ssh_pwauth: True
+                  disable_root: false
+                  users:
+                    - name: root
+                      ssh_authorized_keys:
+                        - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDeTiJc6roHsN7uOwYg7UX7JXTVpTg4FxQmVg4X82fDub5A8xpOpEHE2lYDExKctQVNI8wd7cnZzMFRixqFIlr6bXAqfCKa+B7gbVOOhFLGhhqOgxTPlDC37X085UADiCM5mh36d5iz2h4xxh54WDrKwyy6KaeI0/9yRWhHk3ti6nhcxkzqmrCL5OiqkGrCZoZS+9fmzdRw1rYFOYRCncr+aMsgBMR69rnXA1Saj2KGYE6nC3jS/5Mzyb/qnuld7e11wLe3eaNUOA7rYVoaErlv4wousSX8FlUOtm0QJeADkGdbVA532MIDktrXXguxaFdjA12iVUIq9MK3uVH3AD6NdLdO6vbNChT6xnZU9+sQ/+rj3USnUp4ppxev9jhIn2hfVw/GwYSW35/y9MgZBv+iCr5z3pjWOq/DbLe5SxFeeI6x1h2qmD6SRksZsuKnHcoXxMaKLhVHoq3SxLXsziaK5DtcqgwSGYo/VCdYyiIGWuZfpUhiszZDH+rHkLc1fVE= root@am-ceph1
+                  runcmd:
+                    - useradd -m -s /bin/bash developer
+                    - echo "developer:tauhid" | chpasswd
+              name: cloudinitdisk
+EOF
