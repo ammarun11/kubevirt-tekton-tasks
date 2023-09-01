@@ -1,4 +1,4 @@
----
+cat <<EOF | kubectl apply -f -
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
@@ -20,7 +20,7 @@ spec:
                 resources:
                   requests:
                     storage: 5Gi
-                volumeMode: Filesystem
+                storageClassName: csi-rbd-sc
               source:
                 http:
                   url: https://download.fedoraproject.org/pub/fedora/linux/releases/33/Cloud/x86_64/images/Fedora-Cloud-Base-33-1.2.x86_64.raw.xz
@@ -140,3 +140,4 @@ spec:
       taskRef:
         kind: Task
         name: execute-in-vm
+EOF
