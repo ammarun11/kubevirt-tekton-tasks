@@ -38,24 +38,25 @@ spec:
       taskRef:
         kind: Task
         name: generate-ssh-keys
-    - name: disk-virt-customize
-      params:
-        - name: pvc
-          value: "$(tasks.modify-data-object.results.name)"
-        - name: customizeCommands
-          value: |
-            install git,vim,pip
-            run-command pip install flask
-      taskRef:
-        kind: Task
-        name: disk-virt-customize
-      runAfter:
-        - modify-data-object
+    # - name: disk-virt-customize
+    #   params:
+    #     - name: pvc
+    #       value: "$(tasks.modify-data-object.results.name)"
+    #     - name: customizeCommands
+    #       value: |
+    #         update
+    #         install git,vim,pip
+    #         run-command pip install flask
+    #   taskRef:
+    #     kind: Task
+    #     name: disk-virt-customize
+    #   runAfter:
+    #     - modify-data-object
     - name: create-vm-from-manifest
       params:
         - name: manifest
           value: |
-            apiVersion: kubevirt.io/v1alpha3
+            apiVersion: kubevirt.io/v1
             kind: VirtualMachine
             metadata:
               generateName: flasker-vm-
@@ -77,6 +78,13 @@ spec:
                             secretName: $(tasks.generate-ssh-keys.results.publicKeySecretName)
                         propagationMethod:
                           configDrive: {}
+                  accessCredentials:
+                  - sshPublicKey:
+                      source:
+                        secret:
+                          secretName: my-pub-key
+                      propagationMethod:
+                        configDrive: {}
                   domain:
                     cpu:
                       cores: 2
@@ -84,13 +92,12 @@ spec:
                       threads: 1
                     devices:
                       disks:
-                        - name: rootdisk
-                          bootOrder: 1
-                          disk:
-                            bus: virtio
-                        - name: cloudinitdrive
-                          disk:
-                            bus: virtio
+                      - name: rootdisk
+                        disk:
+                          bus: virtio
+                      - disk:
+                          bus: virtio
+                        name: cloudinitdisk
                       interfaces:
                         - bridge: {}
                           name: default
@@ -104,18 +111,20 @@ spec:
                     - name: default
                       pod: {}
                   volumes:
-                    - name: rootdisk
-                    - name: cloudinitdrive
-                      cloudInitConfigDrive:
-                        userData: |
-                          #cloud-config
-                          password: fedora
-                          chpasswd: { expire: False }
-        - name: ownDataVolumes
-          value:
-            - "rootdisk:$(tasks.modify-data-object.results.name)"
+                  - dataVolume: 
+                      name: $(tasks.modify-data-object.results.name)
+                    name: rootdisk
+                  - cloudInitConfigDrive:
+                      userData: |
+                        #cloud-config
+                        password: fedora
+                        chpasswd: { expire: False }
+                    name: cloudinitdisk
+        # - name: ownDataVolumes
+        #   value:
+        #     - "rootdisk:$(tasks.modify-data-object.results.name)"
       runAfter:
-        - disk-virt-customize
+        # - disk-virt-customize
         - generate-ssh-keys
       taskRef:
         kind: Task
@@ -128,6 +137,8 @@ spec:
           value: $(tasks.generate-ssh-keys.results.privateKeySecretName)
         - name: script
           value: |
+            sudo dnf install -y git vim pip
+            sudo pip install flask
             git clone https://github.com/pallets/flask.git
             echo deploying flaskr...
             pushd flask/examples/tutorial

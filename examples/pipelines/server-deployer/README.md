@@ -49,3 +49,6 @@ VM name and namespace can be found in the PipelineRun's results once it has fini
 virtctl expose vm ${VM_NAME} --name=flaskr --port 5000
 kubectl proxy -p 8001
 ```
+
+
+virtctl expose vmi flasker-ubuntu-vm-vwxjt --name flaskr-nodeport --type NodePort --port 5000 --target-port 5000

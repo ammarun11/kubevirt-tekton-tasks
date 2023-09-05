@@ -1,11 +1,11 @@
-cat <<EOF > server-deployer-pipelinerun.yaml
+cat <<EOF > server-deployer-pipelinerun-ubuntu.yaml
 apiVersion: tekton.dev/v1beta1
 kind: PipelineRun
 metadata:
-  generateName: server-deployer-run-
+  generateName: server-deployer-ubuntu-run-
 spec:
   pipelineRef:
-    name: server-deployer
+    name: server-deployer-ubuntu
   taskRunSpecs:
     - pipelineTaskName: modify-data-object
       taskServiceAccountName: modify-data-object-task

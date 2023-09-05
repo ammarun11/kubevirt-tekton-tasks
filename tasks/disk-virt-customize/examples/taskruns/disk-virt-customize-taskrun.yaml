@@ -13,5 +13,5 @@ spec:
     - name: customizeCommands
       value: |
         update
-        install make,ansible
+        install  git,vim,pip,make,ansible
         delete /var/cache/dnf
