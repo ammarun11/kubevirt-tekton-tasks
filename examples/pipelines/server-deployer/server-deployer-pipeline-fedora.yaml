@@ -78,13 +78,6 @@ spec:
                             secretName: $(tasks.generate-ssh-keys.results.publicKeySecretName)
                         propagationMethod:
                           configDrive: {}
-                  accessCredentials:
-                  - sshPublicKey:
-                      source:
-                        secret:
-                          secretName: my-pub-key
-                      propagationMethod:
-                        configDrive: {}
                   domain:
                     cpu:
                       cores: 2

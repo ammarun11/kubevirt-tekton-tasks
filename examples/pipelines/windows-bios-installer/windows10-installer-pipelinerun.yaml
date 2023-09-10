@@ -5,8 +5,18 @@ metadata:
 spec:
   params:
   - name: winImageDownloadURL
-    value: INSERT_WINDOWS_ISO_URL
+    value: http://185.181.211.5/ISO/Windows_10_PRO_21H2_ENU.iso
   pipelineRef:
     name: windows-bios-installer
-  serviceAccountName: pipeline
+  taskRunSpecs:
+    - pipelineTaskName: create-source-dv
+      taskserviceAccountName: modify-data-object-task
+    - pipelineTaskName: create-vm-root-disk
+      taskserviceAccountName: modify-data-object-task
+    - pipelineTaskName: create-vm
+      taskserviceAccountName: create-vm-from-manifest-task
+    - pipelineTaskName: wait-for-vmi-status
+      taskserviceAccountName: wait-for-vmi-status-task
+    - pipelineTaskName: cleanup-vm
+      taskserviceAccountName: cleanup-task
 status: {}

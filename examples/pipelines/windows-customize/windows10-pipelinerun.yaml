@@ -1,22 +1,25 @@
 apiVersion: tekton.dev/v1beta1
 kind: PipelineRun
 metadata:
-  generateName: windows-installer-run-
+  generateName: windows10-customize-run-
 spec:
   params:
-    - name: winImageDownloadURL
-      value: http://185.181.211.5/ISO/Windows_10_PRO_21H2_ENU.iso
+    - name: baseDvName
+      value: win10-customized
+    - name: customizeConfigMapName
+      value: windows-vs-code
+    - name: customizeConfigMapNameInstall
+      value: windows10-bios-autounattend
   pipelineRef:
-    name: windows-installer
-  timeout: '5h'
-  serviceAccountNames:
-    - taskName: create-source-dv
-      serviceAccountName: create-datavolume-from-manifest-task
-    - taskName: create-base-dv
-      serviceAccountName: create-datavolume-from-manifest-task
-    - taskName: create-vm-from-manifest
-      serviceAccountName: create-vm-from-manifest-task
-    - taskName: wait-for-vmi-status
-      serviceAccountName: wait-for-vmi-status-task
-    - taskName: cleanup-vm
-      serviceAccountName: cleanup-vm-task
+    name: windows-customize
+  taskRunSpecs:
+    - pipelineTaskName: copy-vm-root-disk
+      taskserviceAccountName: modify-data-object-task
+    - pipelineTaskName: create-base-dv
+      taskserviceAccountName: modify-data-object-task
+    - pipelineTaskName: create-vm
+      taskserviceAccountName: create-vm-from-manifest-task
+    - pipelineTaskName: wait-for-vmi-status
+      taskserviceAccountName: wait-for-vmi-status-task
+    - pipelineTaskName: cleanup-vm
+      taskserviceAccountName: cleanup-task

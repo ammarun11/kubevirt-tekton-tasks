@@ -42,7 +42,7 @@ A new golden template is created after a successful customization through this v
   copy-vm-root-disk --- create-vm --- wait-for-vmi-status --- cleanup-vm
 ```
 
-1. `copy-vm-root-disk` task copies PVC defined in `sourceDiskImageName` and `sourceDiskImageNamespace` parameters.
+1. `copy-vm-root-disk` task copies PVC defined in `1` and `sourceDiskImageNamespace` parameters.
 2. `create-vm` task creates a VM called `windows-customize-*`
    from the base DV and with the customize ConfigMap attached as a CD-ROM. (Pipeline parameter `customizeConfigMapName`)
 3. `wait-for-vmi-status` task waits until the VM shuts down.
