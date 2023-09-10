@@ -1,0 +1,23 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  annotations: {}
+  generateName: windows-template-installer
+  namespace: default
+spec:
+  params:
+    - name: winImageDownloadURL
+      value: http://185.181.211.5/ISO/Windows_10_PRO_21H2_ENU.iso
+  pipelineRef:
+    name: windows-template-installer
+  taskRunSpecs:
+    - pipelineTaskName: create-vm-template
+      serviceAccountName: create-vm-from-manifest-task
+    - pipelineTaskName: wait-for-vmi-status
+      serviceAccountName: wait-for-vmi-status-task
+    - pipelineTaskName: cleanup-vm
+      serviceAccountName: cleanup-task
+  taskRunTemplate:
+    serviceAccountName: default
+  timeouts:
+    pipeline: 1h0m0s

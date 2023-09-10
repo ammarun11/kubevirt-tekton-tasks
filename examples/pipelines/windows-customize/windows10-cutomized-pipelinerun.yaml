@@ -3,19 +3,10 @@ kind: PipelineRun
 metadata:
   generateName: windows10-customize-run-
 spec:
-  params:
-    - name: baseDvName
-      value: win10-customized
-    - name: customizeConfigMapName
-      value: windows-vs-code
-    - name: customizeConfigMapNameInstall
-      value: windows10-bios-autounattend
   pipelineRef:
     name: windows-customize
   taskRunSpecs:
     - pipelineTaskName: copy-vm-root-disk
-      taskserviceAccountName: modify-data-object-task
-    - pipelineTaskName: create-base-dv
       taskserviceAccountName: modify-data-object-task
     - pipelineTaskName: create-vm
       taskserviceAccountName: create-vm-from-manifest-task
