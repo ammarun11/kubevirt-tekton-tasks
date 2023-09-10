@@ -10,19 +10,12 @@ spec:
     name: cleanup-vm
   params:
     - name: vmName
-      value: vm-example
+      value: ${VM-NAME}
     - name: secretName
-      value: ssh-secret
+      value: ${SSH-Secret}
     - name: stop
       value: "true"
     - name: delete
       value: "false"
     - name: timeout
       value: 10m
-    - name: command
-      value:
-        - systemctl
-    - name: args
-      value:
-        - 'stop'
-        - 'postgresql'
