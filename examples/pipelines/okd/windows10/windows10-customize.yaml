@@ -1,0 +1,131 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  annotations:
+    description: >-
+      windows-customize pipeline provides functionality for windows VMs to e.g.
+      install sql server, or install VS Code into windows VM. This pipeline can
+      be reused for customizing Windows 10 and 11.
+  name: windows-customize
+spec:
+  finally:
+    - name: wait-for-vmi-status
+      params:
+        - name: vmiName
+          value: $(tasks.create-vm.results.name)
+        - name: successCondition
+          value: status.phase == Succeeded
+        - name: failureCondition
+          value: 'status.phase in (Failed, Unknown)'
+      taskRef:
+        kind: ClusterTask
+        name: wait-for-vmi-status
+      timeout: 2h0m0s
+  params:
+    - default: customize-sysprep-config
+      description: >-
+        Name of the ConfigMap containing the customization and sysprep
+        configuration files (unattend.xml, etc.). For example
+        windows10-sqlserver or windows11-vs-code. It is possible to provide
+        customize ConfigMaps created by the user too.
+      name: customizeConfigMapName
+      type: string
+    - default: win10-template
+      description: >-
+        Name of the windows source disk which will be copied and modified with
+        sysprep
+      name: sourceDiskImageName
+      type: string
+    - default: win10-customized
+      description: Name of the result windows disk
+      name: baseDvName
+      type: string
+  results:
+    - description: Name of the created base DataVolume
+      name: baseDvName
+      value: $(tasks.copy-vm-root-disk.results.name)
+  tasks:
+    - name: copy-vm-root-disk
+      params:
+        - name: manifest
+          value: |-
+            apiVersion: cdi.kubevirt.io/v1beta1
+            kind: DataVolume
+            metadata:
+              generateName: $(params.baseDvName)-
+              annotations:
+                cdi.kubevirt.io/storage.bind.immediate.requested: \"true\"
+                cdi.kubevirt.io/storage.deleteAfterCompletion: "false"
+            spec:
+              pvc:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 35Gi
+                volumeMode: Filesystem
+              source: 
+                pvc:
+                  name: $(params.sourceDiskImageName)
+                  namespace: ammarun
+        - name: waitForSuccess
+          value: 'true'
+        - name: allowReplace
+          value: 'true'
+      taskRef:
+        kind: ClusterTask
+        name: modify-data-object
+    - name: create-vm
+      params:
+        - name: manifest
+          value: |-
+            apiVersion: kubevirt.io/v1
+            kind: VirtualMachine
+            metadata:
+              generateName: windows-customize-
+            spec:
+              running: true
+              template:
+                metadata:
+                  labels:
+                    kubevirt.io/domain: windows-customized
+                spec:
+                  domain:
+                    cpu:
+                      cores: 2
+                    resources:
+                      requests:
+                        memory: 2Gi
+                    devices:
+                      disks:
+                        - disk:
+                            bus: virtio
+                          name: rootdisk
+                          bootOrder: 1
+                        - cdrom:
+                            bus: sata
+                          name: sysprep
+                      interfaces:
+                        - bridge: {}
+                          name: default
+                      inputs:
+                        - type: tablet
+                          bus: usb
+                          name: tablet
+                  terminationGracePeriodSeconds: 3600
+                  networks:
+                    - name: default
+                      pod: {}
+                  volumes:
+                  - name: sysprep
+                    sysprep:
+                      configMap: 
+                        name: $(params.customizeConfigMapName)
+                  - dataVolume:
+                      name:  $(tasks.copy-vm-root-disk.results.name)
+                    name: rootdisk
+      runAfter:
+        - copy-vm-root-disk
+      taskRef:
+        kind: ClusterTask
+        name: create-vm-from-manifest

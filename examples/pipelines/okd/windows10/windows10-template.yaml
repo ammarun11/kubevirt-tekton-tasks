@@ -1,0 +1,210 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: windows-template-installer
+spec:
+  finally:
+    - name: wait-for-vmi-status
+      params:
+        - name: vmiName
+          value: $(tasks.create-vm.results.name)
+        - name: successCondition
+          value: status.phase == Succeeded
+        - name: failureCondition
+          value: 'status.phase in (Failed, Unknown)'
+      taskRef:
+        kind: ClusterTask
+        name: wait-for-vmi-status
+      timeout: 2h0m0s
+  params:
+    - default: 'https://$DomainImageWindows/windows/win10x64.iso'
+      description: >-
+        Download URL to Windows installation ISO (English United States x64
+        version is needed). You can follow e.g.
+        https://www.microsoft.com/en-us/software-download/windows10ISO to get
+        windows 10 iso.
+      name: winImageDownloadURL
+      type: string
+    - default: windows10-template-autounattend
+      description: >-
+        Name of the ConfigMap containing the sysprep configuration files
+        (autounattend.xml, etc.).
+      name: autounattendConfigMapName
+      type: string
+    - default: 'quay.io/kubevirt/virtio-container-disk:v1.0.0'
+      description: Reference to the containerdisk containing the virtio-win drivers ISO.
+      name: virtioContainerDiskName
+      type: string
+    - default: windows10-template-installer-cd-rom
+      description: Name of datavolume which contains iso file.
+      name: installCDRomName
+      type: string
+    - default: win10-template
+      description: >-
+        Name of the base DataVolume which is created. Pre-installed Windows VMs
+        can be created from this DataVolume.
+      name: baseDvName
+      type: string
+  results:
+    - description: Name of the created base DataVolume
+      name: baseDvName
+      value: $(tasks.create-vm-root-disk.results.name)
+  tasks:
+    - name: create-source-dv
+      params:
+        - name: manifest
+          value: |
+            apiVersion: cdi.kubevirt.io/v1beta1
+            kind: DataVolume
+            metadata:
+              name: $(params.installCDRomName)
+              annotations:
+                cdi.kubevirt.io/storage.bind.immediate.requested: \"true\"
+                cdi.kubevirt.io/storage.deleteAfterCompletion: "false"
+            spec:
+              pvc:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 7Gi
+                volumeMode: Filesystem
+              source:
+                http:
+                  url: $(params.winImageDownloadURL)
+        - name: waitForSuccess
+          value: 'true'
+        - name: allowReplace
+          value: 'true'
+      taskRef:
+        kind: ClusterTask
+        name: modify-data-object
+      timeout: 1h0m0s
+    - name: create-vm-root-disk
+      params:
+        - name: manifest
+          value: |-
+            apiVersion: cdi.kubevirt.io/v1beta1
+            kind: DataVolume
+            metadata:
+              name: $(params.baseDvName)
+              annotations:
+                cdi.kubevirt.io/storage.bind.immediate.requested: \"true\"
+                cdi.kubevirt.io/storage.deleteAfterCompletion: "false"
+            spec:
+              pvc:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 30Gi
+                volumeMode: Filesystem # will use default storageClass
+              source:
+                blank: {}
+        - name: waitForSuccess
+          value: 'true'
+        - name: allowReplace
+          value: 'true'
+      taskRef:
+        kind: ClusterTask
+        name: modify-data-object
+    - name: create-vm
+      params:
+        - name: runStrategy
+          value: RerunOnFailure
+        - name: manifest
+          value: |-
+            apiVersion: kubevirt.io/v1
+            kind: VirtualMachine
+            metadata:
+              generateName: windows-template-installer-
+            spec:
+              runStrategy: RerunOnFailure
+              template:
+                metadata:
+                  labels:
+                    kubevirt.io/domain: windows-installer
+                spec:
+                  domain:
+                    clock:
+                      timer:
+                        hpet:
+                          present: false
+                        hyperv: {}
+                        pit:
+                          tickPolicy: delay
+                        rtc:
+                          tickPolicy: catchup
+                      utc: {}
+                    cpu:
+                      cores: 2
+                    resources:
+                      requests:
+                        memory: 2Gi
+                    features:
+                      acpi: {}
+                      apic: {}
+                      hyperv:
+                        reenlightenment: {}
+                        ipi: {}
+                        synic: {}
+                        synictimer:
+                          direct: {}
+                        spinlocks:
+                          spinlocks: 8191
+                        reset: {}
+                        relaxed: {}
+                        vpindex: {}
+                        runtime: {}
+                        tlbflush: {}
+                        frequencies: {}
+                        vapic: {}
+                    machine:
+                      type: q35
+                    devices:
+                      disks:
+                        - cdrom:
+                            bus: sata
+                          name: installcdrom
+                          bootOrder: 1
+                        - disk:
+                            bus: virtio
+                          name: rootdisk
+                          bootOrder: 2
+                        - cdrom:
+                            bus: sata
+                          name: virtiocontainerdisk
+                        - cdrom:
+                            bus: sata
+                          name: sysprep
+                      interfaces:
+                        - bridge: {}
+                          name: default
+                      inputs:
+                        - type: tablet
+                          bus: usb
+                          name: tablet
+                  terminationGracePeriodSeconds: 3600
+                  networks:
+                    - name: default
+                      pod: {}
+                  volumes:
+                  - name: installcdrom
+                    dataVolume:
+                      name: $(tasks.create-source-dv.results.name)
+                  - name: virtiocontainerdisk
+                    containerDisk:
+                      image: $(params.virtioContainerDiskName)
+                  - name: sysprep
+                    sysprep:
+                      configMap: 
+                        name: $(params.autounattendConfigMapName)
+                  - dataVolume:
+                      name:  $(tasks.create-vm-root-disk.results.name)
+                    name: rootdisk
+      runAfter:
+        - create-source-dv
+        - create-vm-root-disk
+      taskRef:
+        kind: ClusterTask
+        name: create-vm-from-manifest

@@ -1,0 +1,135 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: customize-sysprep-config
+data:
+  autounattend.xml: |-
+    <?xml version="1.0" encoding="utf-8"?>
+    <!-- responsible for installing windows, ignored on sysprepped images -->
+  customize.ps1: >-
+    # Enable RDP
+    Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal
+    Server' -name "fDenyTSConnections" -value 0
+    Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+
+    # Install the OpenSSH Server
+    # https://docs.microsoft.com/en-us/windows-server/administration/openssh/openssh_install_firstuse
+    Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+
+    # Start the sshd service
+    Start-Service sshd
+    Set-Service -Name sshd -StartupType 'Automatic'
+
+    # use powershell as default shell for ssh
+    # https://docs.microsoft.com/en-us/windows-server/administration/openssh/openssh_server_configuration
+    New-ItemProperty -Path "HKLM:\SOFTWARE\OpenSSH" -Name DefaultShell -Value
+    "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -PropertyType
+    String -Force
+
+    # Add ssh authorized_key for administrator
+    # https://docs.microsoft.com/en-us/windows-server/administration/openssh/openssh_keymanagement
+
+    $MyDir = $MyInvocation.MyCommand.Path | Split-Path -Parent
+
+    $PublicKey = Get-Content -Path $MyDir\id_rsa.pub
+
+    $authrized_keys_path = $env:ProgramData +
+    "\ssh\administrators_authorized_keys" 
+
+    Add-Content -Path $authrized_keys_path -Value $PublicKey
+
+    icacls.exe $authrized_keys_path /inheritance:r /grant "Administrators:F"
+    /grant "SYSTEM:F"
+
+    # https://superuser.com/questions/747149/
+    do {
+      $ping = test-connection -comp kubevirt.io -count 1 -Quiet
+    } until ($ping)
+
+    # 7-zip 
+    $dlurl = 'https://7-zip.org/' + (Invoke-WebRequest -UseBasicParsing -Uri
+    'https://7-zip.org/' | Select-Object -ExpandProperty Links | Where-Object
+    {($_.outerHTML -match 'Download')-and ($_.href -like "a/*") -and ($_.href
+    -like "*-x64.exe")} | Select-Object -First 1 | Select-Object -ExpandProperty
+    href)
+    $installerPath = Join-Path $env:TEMP (Split-Path $dlurl -Leaf)
+    Invoke-WebRequest $dlurl -OutFile $installerPath
+    Start-Process -FilePath $installerPath -Args "/S" -Verb RunAs -Wait
+    Remove-Item $installerPath
+
+    # Notepadd plus-plus
+    # Define the download URL and the destination
+    $notepadppUrl =
+    "https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v8.5.6/npp.8.5.6.Installer.x64.exe"
+    $destination = "$env:TEMP\notepadpp_installer.exe"
+
+    # Download Notepad++ installer
+    Invoke-WebRequest -Uri $notepadppUrl -OutFile $destination
+
+    # Install Notepad++ silently
+    Start-Process -FilePath "$env:TEMP\notepadpp_installer.exe" -ArgumentList
+    "/S" -Verb RunAs -Wait
+    Remove-Item $destination
+
+    # IIS Webserver Enable-WindowsOptionalFeature –online –featurename
+    Enable-WindowsOptionalFeature -Online -FeatureName IIS-WebServerRole, IIS-WebServer, IIS-CommonHttpFeatures, IIS-ManagementConsole, IIS-HttpErrors, IIS-HttpRedirect, IIS-WindowsAuthentication, IIS-StaticContent, IIS-DefaultDocument, IIS-HttpCompressionStatic, IIS-DirectoryBrowsing
+
+    # Download VS Code
+    $url = "https://code.visualstudio.com/sha/download?build=stable&os=win32-x64-user"
+    $setupPath = "C:\VSCodeUserSetup-x64.exe"
+    Invoke-WebRequest -Uri $url -OutFile $setupPath
+
+    # vs code
+    Start-Process $setupPath -Wait -ArgumentList "/ACTION=INSTALL /VERYSILENT
+    /MERGETASKS=!runcode"
+
+
+    # Rename cached unattend.xml to avoid it is picked up by sysprep
+    mv C:\Windows\Panther\unattend.xml
+    C:\Windows\Panther\unattend.visualStudio.xml
+  id_rsa.pub: >-
+    ecdsa-sha2-nistp521
+    AAAAE2VjZHNhLXNoYTItbmlzdHA1MjEAAAAIbmlzdHA1MjEAAACFBAF6jnfwwvUVlQbaTX83dOQ/B6RNy24e1hZDyW+pl9SkiXeGCCZf88+9Nm2YGC/RctKDBaR5bAeFiC0592nZmCt1tgH6nKfrXjVB5tFnV2rrs22aRv3CEhAN507RK9NuPkJ4AACB3oWygTEkK65wQI4uyEdxf64zCKuONOU9+gPPlLbNug==
+  unattend.xml: |-
+    <?xml version="1.0" encoding="utf-8"?>
+    <unattend xmlns="urn:schemas-microsoft-com:unattend">
+      <settings pass="oobeSystem">
+        <component xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+          <OOBE>
+            <HideEULAPage>true</HideEULAPage>
+            <HideOEMRegistrationScreen>true</HideOEMRegistrationScreen>
+            <HideOnlineAccountScreens>true</HideOnlineAccountScreens>
+            <HideWirelessSetupInOOBE>true</HideWirelessSetupInOOBE>
+            <NetworkLocation>Work</NetworkLocation>
+            <SkipUserOOBE>true</SkipUserOOBE>
+            <SkipMachineOOBE>true</SkipMachineOOBE>
+            <ProtectYourPC>3</ProtectYourPC>
+          </OOBE>
+          <AutoLogon>
+            <Password>
+            <Value>@password123</Value>
+              <PlainText>true</PlainText>
+            </Password>
+            <Enabled>true</Enabled>
+        <Username>Administrator</Username>
+    </AutoLogon>
+    <UserAccounts>
+         <AdministratorPassword>
+                <Value>@password123</Value>
+                <PlainText>true</PlainText>
+        </AdministratorPassword>
+          </UserAccounts>
+          <RegisteredOrganization>Kuebvirt</RegisteredOrganization>
+          <RegisteredOwner>Kubevirt</RegisteredOwner>
+          <TimeZone>Eastern Standard Time</TimeZone>
+                <FirstLogonCommands>
+                    <SynchronousCommand wcm:action="add">
+                    <CommandLine>powershell -ExecutionPolicy Bypass -NoExit -WindowStyle Hidden -NoProfile d:\customize.ps1</CommandLine>
+                        <RequiresUserInput>false</RequiresUserInput>
+                        <Order>1</Order>
+                <Description>Customize Script</Description>
+            </SynchronousCommand>
+                </FirstLogonCommands>
+        </component>
+      </settings>
+    </unattend>
