@@ -12,5 +12,5 @@ spec:
       taskserviceAccountName: create-vm-from-manifest-task
     - pipelineTaskName: wait-for-vmi-status
       taskserviceAccountName: wait-for-vmi-status-task
-    - pipelineTaskName: cleanup-vm
-      taskserviceAccountName: cleanup-task
+    # - pipelineTaskName: cleanup-vm
+    #   taskserviceAccountName: cleanup-task
