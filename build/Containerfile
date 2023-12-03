@@ -2,7 +2,7 @@ FROM quay.io/centos/centos:stream9 AS taskBuilder
 
 RUN dnf install -y tar gzip && dnf clean all
 
-ENV GO_VERSION="1.20.2"
+ENV GO_VERSION="1.20.8"
 RUN curl -L https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz | tar -C /usr/local -xzf -
 ENV PATH=$PATH:/usr/local/go/bin
 
@@ -11,6 +11,7 @@ RUN mkdir /out
 
 RUN task_names=("copy-template" "create-vm" "execute-in-vm" "generate-ssh-keys" "modify-data-object" "modify-vm-template" "wait-for-vmi-status"); \
     for TASK_NAME in ${task_names[@]}; do \
+        echo "compiling $TASK_NAME"; \
         cd /src/modules/$TASK_NAME/; \
         CGO_ENABLED=0 GOOS=linux go build -mod=vendor -o /out/${TASK_NAME} cmd/${TASK_NAME}/main.go; \
     done

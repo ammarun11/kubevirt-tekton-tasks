@@ -309,8 +309,8 @@ func (v *vmis) List(ctx context.Context, options *k8smetav1.ListOptions) (vmiLis
 		VersionedParams(options, scheme.ParameterCodec).
 		Do(ctx).
 		Into(vmiList)
-	for _, vmi := range vmiList.Items {
-		vmi.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
+	for i := range vmiList.Items {
+		vmiList.Items[i].SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
 	}
 
 	return
@@ -507,13 +507,34 @@ func (v *vmis) VSOCK(name string, options *v1.VSOCKOptions) (StreamInterface, er
 	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "vsock", queryParams)
 }
 
-func (v *vmis) AddInterface(ctx context.Context, name string, addInterfaceOptions *v1.AddInterfaceOptions) error {
-	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "addinterface")
+func (v *vmis) SEVFetchCertChain(name string) (v1.SEVPlatformInfo, error) {
+	sevPlatformInfo := v1.SEVPlatformInfo{}
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "sev/fetchcertchain")
+	err := v.restClient.Get().RequestURI(uri).Do(context.Background()).Into(&sevPlatformInfo)
+	return sevPlatformInfo, err
+}
 
-	JSON, err := json.Marshal(addInterfaceOptions)
+func (v *vmis) SEVQueryLaunchMeasurement(name string) (v1.SEVMeasurementInfo, error) {
+	sevMeasurementInfo := v1.SEVMeasurementInfo{}
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "sev/querylaunchmeasurement")
+	err := v.restClient.Get().RequestURI(uri).Do(context.Background()).Into(&sevMeasurementInfo)
+	return sevMeasurementInfo, err
+}
+
+func (v *vmis) SEVSetupSession(name string, sevSessionOptions *v1.SEVSessionOptions) error {
+	body, err := json.Marshal(sevSessionOptions)
 	if err != nil {
-		return err
+		return fmt.Errorf("Cannot Marshal to json: %s", err)
 	}
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "sev/setupsession")
+	return v.restClient.Put().RequestURI(uri).Body(body).Do(context.Background()).Error()
+}
 
-	return v.restClient.Put().RequestURI(uri).Body(JSON).Do(ctx).Error()
+func (v *vmis) SEVInjectLaunchSecret(name string, sevSecretOptions *v1.SEVSecretOptions) error {
+	body, err := json.Marshal(sevSecretOptions)
+	if err != nil {
+		return fmt.Errorf("Cannot Marshal to json: %s", err)
+	}
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "sev/injectlaunchsecret")
+	return v.restClient.Put().RequestURI(uri).Body(body).Do(context.Background()).Error()
 }
